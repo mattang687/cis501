@@ -34,6 +34,113 @@ module lc4_processor
     );
    
    /*** YOUR CODE HERE ***/
+   
+   // F stage
+
+   wire [15:0] f_next_pc;
+   wire [15:0] f_pc;
+   wire f_pc_reg_we;
+   wire [15:0] f_pc_plus_one;
+   wire [15:0] x_alu_out
+
+   wire is_mispredict;
+   wire is_load_use;
+
+   assign f_pc_reg_we = !is_load_use;
+
+   assign f_next_pc = is_mispredict ? x_alu_out : f_pc_plus_one;
+
+   Nbit_reg #(16, 16'h8200) f_pc_reg(.in(f_next_pc), .out(f_pc), .clk(clk), .we(f_pc_reg_we), .gwe(gwe), .rst(rst));
+
+   cla16 f_pc_incr(.a(f_pc), .b(16'd0), .cin(16'd1), .sum(f_pc_plus_one));
+
+   // D stage
+
+   wire [15:0] d_pc;
+   wire d_reg_we = !is_load_use;
+   wire d_ir_rst = is_mispredict || rst;
+
+   Nbit_reg #(16, 16'h8200) d_pc_reg(.in(f_pc), .out(d_pc), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(rst));
+
+   Nbit_reg #(16, 16'd0) d_ir_reg(.in(i_cur_insn), .out(d_ir), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(d_ir_rst));
+
+   wire [2:0] d_r1sel;
+   wire d_r1re;
+   wire [2:0] d_r2sel;
+   wire d_r2re;
+   wire [2:0] d_wsel;
+   wire d_regfile_we;
+   wire d_nzp_we;
+   wire d_select_pc_plus_one;
+   wire d_is_load;
+   wire d_is_store;
+   wire d_is_branch;
+   wire d_is_control;
+
+   lc4_decoder decoder(.insn(i_cur_insn), .r1sel(d_r1sel), .r1re(d_r1re), .r2sel(d_r2sel), .r2re(d_r2re), .wsel(d_wsel), .regfile_we(d_regfile_we), .nzp_we(d_nzp_we), .select_pc_plus_one(d_select_pc_plus_one), .is_load(d_is_load), .is_store(d_is_store), .is_branch(d_is_branch), .is_control_insn(d_is_control));
+
+   wire [15:0] d_r1data;
+   wire [15:0] d_r2data;
+
+   wire [15:0] d_r1data_tmp;
+   wire [15:0] d_r2data_tmp;
+
+   lc4_regfile regfile(.clk(clk), .gwe(gwe), .rst(rst), .i_rs(d_r1sel), .o_rs_data(d_r1data_tmp), .i_rt(d_r2sel), .o_rt_data(d_r2data_tmp), .i_rd(d_wsel), .i_wdata(w_rddata), .i_rd_we(w_regfile_we));
+
+   assign d_r1data = (w_wsel == d_r1sel) ? w_rddata : d_r1data_tmp;
+   assign d_r2data = (w_wsel == d_r2sel) ? w_rddata : d_r2data_tmp;
+
+   // X stage
+   
+   wire [15:0] x_pc;
+   Nbit_reg #(16, 16'h8200) x_pc_reg(.in(d_pc), .out(x_pc), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   wire x_ir_rst = is_load_use || is_mispredict || rst;
+   wire [15:0] x_ir;
+   Nbit_reg #(16, 16'd0) x_ir_reg(.in(d_ir), .out(x_ir), .clk(clk), .we(1), .gwe(gwe), .rst(x_ir_rst));
+
+   wire [15:0] x_r1data;
+   Nbit_reg #(16, 16'd0) x_rs_data(.in(d_r1data), .out(x_r1data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   wire [15:0] x_r2data;
+   Nbit_reg #(16, 16'd0) x_rt_data(.in(d_r2data), .out(x_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   wire [2:0] x_r1sel;
+   Nbit_reg #(3, 3'd0) x_r1sel_reg(.in(d_r1sel), .out(x_r1sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_r1re;
+   Nbit_reg #(1, 1'd0) x_r1re_reg(.in(d_r1re), .out(x_r1re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] x_r2sel;
+   Nbit_reg #(3, 3'd0) x_r2sel_reg(.in(d_r2sel), .out(x_r2sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_r2re;
+   Nbit_reg #(1, 1'd0) x_r2re_reg(.in(d_r2re), .out(x_r2re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] x_wsel;
+   Nbit_reg #(3, 3'd0) x_wsel_reg(.in(d_wsel), .out(x_wsel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_regfile_we;
+   Nbit_reg #(1, 1'd0) x_regfile_we_reg(.in(d_regfile_we), .out(x_regfile_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_nzp_we;
+   Nbit_reg #(1, 1'd0) x_nzp_we_reg(.in(d_nzp_we), .out(x_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_select_pc_plus_one;
+   Nbit_reg #(1, 1'd0) x_select_pc_reg(.in(d_select_pc_plus_one), .out(x_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_is_load;
+   Nbit_reg #(1, 1'd0) x_is_load_reg(.in(d_is_load), .out(x_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_is_store;
+   Nbit_reg #(1, 1'd0) x_is_store_reg(.in(d_is_store), .out(x_is_store), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_is_branch;
+   Nbit_reg #(1, 1'd0) x_is_branch_reg(.in(d_is_branch), .out(x_is_branch), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire x_is_control;
+   Nbit_reg #(1, 1'd0) x_is_control_reg(.in(d_is_control), .out(x_is_control), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   assign is_load_use = x_is_load && !d_is_store && ((x_wsel == d_r1sel) && d_r1re && x_regfile_we) && ((x_wsel == d_r2sel) && d_r2re && x_regfile_we);
+
+   // MX bypass
+   wire [15:0] x_alu_r1data = ((m_wsel == x_r1sel) && m_regfile_we && x_r1re) ? m_alu_out : ((w_wsel == x_r1sel) && w_regfile_we && x_r1re) ? w_rd_data : x_r1data;
+
+   wire [15:0] x_alu_r2data = ((m_wsel == x_r2sel) && m_regfile_we && x_r2re) ? m_alu_out : ((w_wsel == x_r2sel) && w_regfile_we && x_r2re) ? w_rd_data : x_r2data;
+
+
+
+
+
 
    /* Add $display(...) calls in the always block below to
     * print out debug information at the end of every cycle.
