@@ -218,7 +218,7 @@ module lc4_processor
 
    assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
 
-   assign o_dmem_towrite = m_is_store ? m_r2_data : 16'd0;
+   assign o_dmem_towrite = m_is_store ? m_r2data : 16'd0;
 
    // W stage
 
