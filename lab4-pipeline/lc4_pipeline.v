@@ -41,7 +41,6 @@ module lc4_processor
    wire [15:0] f_pc;
    wire f_pc_reg_we;
    wire [15:0] f_pc_plus_one;
-   wire [15:0] x_alu_out
 
    wire is_mispredict;
    wire is_load_use;
@@ -54,7 +53,7 @@ module lc4_processor
 
    cla16 f_pc_incr(.a(f_pc), .b(16'd0), .cin(16'd1), .sum(f_pc_plus_one));
 
-   assign o_cur_pc f_pc;
+   assign o_cur_pc = f_pc;
 
    // D stage
 
@@ -64,6 +63,7 @@ module lc4_processor
 
    Nbit_reg #(16, 16'h8200) d_pc_reg(.in(f_pc), .out(d_pc), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(rst));
 
+   wire [15:0] d_ir;
    Nbit_reg #(16, 16'd0) d_ir_reg(.in(i_cur_insn), .out(d_ir), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(d_ir_rst));
 
    wire [2:0] d_r1sel;
@@ -127,7 +127,7 @@ module lc4_processor
    wire x_nzp_we;
    Nbit_reg #(1, 1'd0) x_nzp_we_reg(.in(d_nzp_we), .out(x_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire x_select_pc_plus_one;
-   Nbit_reg #(1, 1'd0) x_select_pc_reg(.in(d_select_pc_plus_one), .out(x_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(1, 1'd0) x_select_pc_reg(.in(d_select_pc_plus_one), .out(x_select_pc_plus_one), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire x_is_load;
    Nbit_reg #(1, 1'd0) x_is_load_reg(.in(d_is_load), .out(x_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire x_is_store;
@@ -154,7 +154,7 @@ module lc4_processor
    wire [15:0] nzp_in;
 
    wire [15:0] x_pc_plus_one;
-   cla16 f_pc_incr(.a(x_pc), .b(16'd0), .cin(16'd1), .sum(x_pc_plus_one));
+   cla16 x_pc_incr(.a(x_pc), .b(16'd0), .cin(16'd1), .sum(x_pc_plus_one));
 
    assign nzp_in = x_select_pc_plus_one ? x_pc_plus_one : x_alu_out;
 
@@ -164,7 +164,7 @@ module lc4_processor
    Nbit_reg #(3, 3'd0) nzp(.in(nzp_new), .out(nzp_out), .clk(clk), .we(x_nzp_we), .gwe(gwe), .rst(rst));
 
    wire take_branch = | (i_cur_insn[11:9] & nzp_out);
-   assign is_mispredict = (take_branch && is_branch) || is_control_insn;
+   assign is_mispredict = (take_branch && x_is_branch) || x_is_control;
 
    // M stage
 
@@ -186,7 +186,7 @@ module lc4_processor
 
    // just one data register because we don't need r1 anymore
    wire [15:0] m_r2data;
-   Nbit_reg #(16, 16'd0) x_rt_data(.in(x_r2data), .out(m_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'd0) m_rt_data(.in(x_r2data), .out(m_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
 
    // Control signal registers
    wire [2:0] m_r1sel;
@@ -204,7 +204,7 @@ module lc4_processor
    wire m_nzp_we;
    Nbit_reg #(1, 1'd0) m_nzp_we_reg(.in(x_nzp_we), .out(m_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire m_select_pc_plus_one;
-   Nbit_reg #(1, 1'd0) m_select_pc_reg(.in(x_select_pc_plus_one), .out(m_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(1, 1'd0) m_select_pc_reg(.in(x_select_pc_plus_one), .out(m_select_pc_plus_one), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire m_is_load;
    Nbit_reg #(1, 1'd0) m_is_load_reg(.in(x_is_load), .out(m_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire m_is_store;
@@ -218,7 +218,7 @@ module lc4_processor
 
    assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
 
-   assign o_dmem_towrite = is_store ? rt_data;
+   assign o_dmem_towrite = m_is_store ? m_rt_data : 16'd0;
 
    // W stage
 
@@ -254,7 +254,7 @@ module lc4_processor
    wire w_nzp_we;
    Nbit_reg #(1, 1'd0) w_nzp_we_reg(.in(m_nzp_we), .out(w_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire w_select_pc_plus_one;
-   Nbit_reg #(1, 1'd0) w_select_pc_reg(.in(m_select_pc_plus_one), .out(w_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(1, 1'd0) w_select_pc_reg(.in(m_select_pc_plus_one), .out(w_select_pc_plus_one), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire w_is_load;
    Nbit_reg #(1, 1'd0) w_is_load_reg(.in(m_is_load), .out(w_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
    wire w_is_store;
@@ -268,7 +268,7 @@ module lc4_processor
    wire [15:0] w_dmem_data;
    Nbit_reg #(15, 16'd0) w_data_reg(.in(i_cur_dmem_data), .out(w_dmem_data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
 
-   assign w_rddata = w_is_load ? w_dmem_data : w_alu_out;
+   wire [15:0] w_rddata = w_is_load ? w_dmem_data : w_alu_out;
 
    // Test signals
 
@@ -280,7 +280,7 @@ module lc4_processor
    assign test_regfile_data = w_rddata;
    assign test_nzp_we = w_nzp_we;
    assign test_nzp_new_bits = w_nzp;
-   
+
    assign led_data = switch_data;
 
 
