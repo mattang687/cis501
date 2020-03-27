@@ -54,6 +54,8 @@ module lc4_processor
 
    cla16 f_pc_incr(.a(f_pc), .b(16'd0), .cin(16'd1), .sum(f_pc_plus_one));
 
+   assign o_cur_pc f_pc;
+
    // D stage
 
    wire [15:0] d_pc;
@@ -85,8 +87,9 @@ module lc4_processor
    wire [15:0] d_r1data_tmp;
    wire [15:0] d_r2data_tmp;
 
-   lc4_regfile regfile(.clk(clk), .gwe(gwe), .rst(rst), .i_rs(d_r1sel), .o_rs_data(d_r1data_tmp), .i_rt(d_r2sel), .o_rt_data(d_r2data_tmp), .i_rd(d_rdsel), .i_wdata(w_rddata), .i_rd_we(w_regfile_we));
+   lc4_regfile regfile(.clk(clk), .gwe(gwe), .rst(rst), .i_rs(d_r1sel), .o_rs_data(d_r1data_tmp), .i_rt(d_r2sel), .o_rt_data(d_r2data_tmp), .i_rd(w_rdsel), .i_wdata(w_rddata), .i_rd_we(w_regfile_we));
 
+   // WD bypass
    assign d_r1data = (w_rdsel == d_r1sel) ? w_rddata : d_r1data_tmp;
    assign d_r2data = (w_rdsel == d_r2sel) ? w_rddata : d_r2data_tmp;
 
@@ -137,12 +140,148 @@ module lc4_processor
    assign is_load_use = x_is_load && !d_is_store && ((x_rdsel == d_r1sel) && d_r1re && x_regfile_we) && ((x_rdsel == d_r2sel) && d_r2re && x_regfile_we);
 
    // MX bypass
-   wire [15:0] x_alu_r1data = ((m_rdsel == x_r1sel) && m_regfile_we && x_r1re) ? m_alu_out : ((w_rdsel == x_r1sel) && w_regfile_we && x_r1re) ? w_rd_data : x_r1data;
+   wire [15:0] x_alu_r1data = ((m_rdsel == x_r1sel) && m_regfile_we && x_r1re) ? m_alu_out : ((w_rdsel == x_r1sel) && w_regfile_we && x_r1re) ? w_rddata : x_r1data;
 
-   wire [15:0] x_alu_r2data = ((m_rdsel == x_r2sel) && m_regfile_we && x_r2re) ? m_alu_out : ((w_rdsel == x_r2sel) && w_regfile_we && x_r2re) ? w_rd_data : x_r2data;
+   wire [15:0] x_alu_r2data = ((m_rdsel == x_r2sel) && m_regfile_we && x_r2re) ? m_alu_out : ((w_rdsel == x_r2sel) && w_regfile_we && x_r2re) ? w_rddata : x_r2data;
 
+   // ALU
+   wire [15:0] x_alu_out;
 
+   lc4_alu alu(.i_insn(x_ir), .i_pc(x_pc), .i_r1data(x_alu_r1data), .i_r2data(x_alu_r2data), .o_result(x_alu_out));
 
+   // NZP
+   // TODO handle load
+   wire [15:0] nzp_in;
+
+   wire [15:0] x_pc_plus_one;
+   cla16 f_pc_incr(.a(x_pc), .b(16'd0), .cin(16'd1), .sum(x_pc_plus_one));
+
+   assign nzp_in = x_select_pc_plus_one ? x_pc_plus_one : x_alu_out;
+
+   wire [2:0] nzp_new = nzp_in == 0 ? 3'b010 : nzp_in[15] == 1'b1 ? 3'b100 : 3'b001;
+
+   wire [2:0] nzp_out;
+   Nbit_reg #(3, 3'd0) nzp(.in(nzp_new), .out(nzp_out), .clk(clk), .we(x_nzp_we), .gwe(gwe), .rst(rst));
+
+   wire take_branch = | (i_cur_insn[11:9] & nzp_out);
+   assign is_mispredict = (take_branch && is_branch) || is_control_insn;
+
+   // M stage
+
+   // pc
+   wire [15:0] m_pc;
+   Nbit_reg #(16, 16'h8200) m_pc_reg(.in(x_pc), .out(m_pc), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // Insn register
+   wire [15:0] m_ir;
+   Nbit_reg #(16, 16'd0) m_ir_reg(.in(x_ir), .out(m_ir), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // forward nzp bits
+   wire [2:0] m_nzp;
+   Nbit_reg #(3, 3'd0) m_nzp_reg(.in(nzp_out), .out(m_nzp), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // forward alu output
+   wire [15:0] m_alu_out;
+   Nbit_reg #(15, 16'd0) m_alu_reg(.in(x_alu_out), .out(m_alu_out), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // just one data register because we don't need r1 anymore
+   wire [15:0] m_r2data;
+   Nbit_reg #(16, 16'd0) x_rt_data(.in(x_r2data), .out(m_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // Control signal registers
+   wire [2:0] m_r1sel;
+   Nbit_reg #(3, 3'd0) m_r1sel_reg(.in(x_r1sel), .out(m_r1sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_r1re;
+   Nbit_reg #(1, 1'd0) m_r1re_reg(.in(x_r1re), .out(m_r1re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] m_r2sel;
+   Nbit_reg #(3, 3'd0) m_r2sel_reg(.in(x_r2sel), .out(m_r2sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_r2re;
+   Nbit_reg #(1, 1'd0) m_r2re_reg(.in(x_r2re), .out(m_r2re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] m_rdsel;
+   Nbit_reg #(3, 3'd0) m_rdsel_reg(.in(x_rdsel), .out(m_rdsel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_regfile_we;
+   Nbit_reg #(1, 1'd0) m_regfile_we_reg(.in(x_regfile_we), .out(m_regfile_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_nzp_we;
+   Nbit_reg #(1, 1'd0) m_nzp_we_reg(.in(x_nzp_we), .out(m_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_select_pc_plus_one;
+   Nbit_reg #(1, 1'd0) m_select_pc_reg(.in(x_select_pc_plus_one), .out(m_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_is_load;
+   Nbit_reg #(1, 1'd0) m_is_load_reg(.in(x_is_load), .out(m_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_is_store;
+   Nbit_reg #(1, 1'd0) m_is_store_reg(.in(x_is_store), .out(m_is_store), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_is_branch;
+   Nbit_reg #(1, 1'd0) m_is_branch_reg(.in(x_is_branch), .out(m_is_branch), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire m_is_control;
+   Nbit_reg #(1, 1'd0) m_is_control_reg(.in(x_is_control), .out(m_is_control), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   assign o_dmem_we = m_is_store;
+
+   assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
+
+   assign o_dmem_towrite = is_store ? rt_data;
+
+   // W stage
+
+   // pc
+   wire [15:0] w_pc;
+   Nbit_reg #(16, 16'h8200) w_pc_reg(.in(m_pc), .out(w_pc), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // Insn register
+   wire [15:0] w_ir;
+   Nbit_reg #(16, 16'd0) w_ir_reg(.in(m_ir), .out(w_ir), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // forward nzp bits
+   wire [2:0] w_nzp;
+   Nbit_reg #(3, 3'd0) w_nzp_reg(.in(m_nzp), .out(w_nzp), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // forward alu output
+   wire [15:0] w_alu_out;
+   Nbit_reg #(15, 16'd0) w_alu_reg(.in(m_alu_out), .out(w_alu_out), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // Control signal registers
+   wire [2:0] w_r1sel;
+   Nbit_reg #(3, 3'd0) w_r1sel_reg(.in(m_r1sel), .out(w_r1sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_r1re;
+   Nbit_reg #(1, 1'd0) w_r1re_reg(.in(m_r1re), .out(w_r1re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] w_r2sel;
+   Nbit_reg #(3, 3'd0) w_r2sel_reg(.in(m_r2sel), .out(w_r2sel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_r2re;
+   Nbit_reg #(1, 1'd0) w_r2re_reg(.in(m_r2re), .out(w_r2re), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [2:0] w_rdsel;
+   Nbit_reg #(3, 3'd0) w_rdsel_reg(.in(m_rdsel), .out(w_rdsel), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_regfile_we;
+   Nbit_reg #(1, 1'd0) w_regfile_we_reg(.in(m_regfile_we), .out(w_regfile_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_nzp_we;
+   Nbit_reg #(1, 1'd0) w_nzp_we_reg(.in(m_nzp_we), .out(w_nzp_we), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_select_pc_plus_one;
+   Nbit_reg #(1, 1'd0) w_select_pc_reg(.in(m_select_pc_plus_one), .out(w_select_pc_plus_one, .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_is_load;
+   Nbit_reg #(1, 1'd0) w_is_load_reg(.in(m_is_load), .out(w_is_load), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_is_store;
+   Nbit_reg #(1, 1'd0) w_is_store_reg(.in(m_is_store), .out(w_is_store), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_is_branch;
+   Nbit_reg #(1, 1'd0) w_is_branch_reg(.in(m_is_branch), .out(w_is_branch), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire w_is_control;
+   Nbit_reg #(1, 1'd0) w_is_control_reg(.in(m_is_control), .out(w_is_control), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   // dmem data
+   wire [15:0] w_dmem_data;
+   Nbit_reg #(15, 16'd0) w_data_reg(.in(i_cur_dmem_data), .out(w_dmem_data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+
+   assign w_rddata = w_is_load ? w_dmem_data : w_alu_out;
+
+   // Test signals
+
+   assign test_stall = is_mispredict ? 2'd2 : is_load_use ? 2'd3 : 0;
+   assign test_cur_pc = w_pc;
+   assign test_cur_insn = w_ir;
+   assign test_regfile_we = w_regfile_we;
+   assign test_regfile_wsel = w_rdsel;
+   assign test_regfile_data = w_rddata;
+   assign test_nzp_we = w_nzp_we;
+   assign test_nzp_new_bits = w_nzp;
+   
+   assign led_data = switch_data;
 
 
 
