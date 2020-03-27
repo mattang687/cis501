@@ -186,7 +186,7 @@ module lc4_processor
 
    // just one data register because we don't need r1 anymore
    wire [15:0] m_r2data;
-   Nbit_reg #(16, 16'd0) m_rt_data(.in(x_r2data), .out(m_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'd0) m_rt_data_reg(.in(x_r2data), .out(m_r2data), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
 
    // Control signal registers
    wire [2:0] m_r1sel;
@@ -218,7 +218,7 @@ module lc4_processor
 
    assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
 
-   assign o_dmem_towrite = m_is_store ? m_rt_data : 16'd0;
+   assign o_dmem_towrite = m_is_store ? m_r2_data : 16'd0;
 
    // W stage
 
