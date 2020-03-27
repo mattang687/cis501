@@ -93,6 +93,8 @@ module lc4_processor
    assign d_r1data = (w_rdsel == d_r1sel) ? w_rddata : d_r1data_tmp;
    assign d_r2data = (w_rdsel == d_r2sel) ? w_rddata : d_r2data_tmp;
 
+   
+
    // X stage
    
    // PC register
@@ -273,8 +275,17 @@ module lc4_processor
    wire [15:0] w_rddata = w_is_load ? w_dmem_data : w_alu_out;
 
    // Test signals
+   // stall stuff
+   wire [1:0] f_stall_signal = is_mispredict ? 2'd2 : 0;
+   wire [1:0] d_stall_signal_in;
+   Nbit_reg #(2, 16'd2) f_stall_reg(.in(f_stall_signal), .out(d_stall_signal_in), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [1:0] d_stall_signal = (d_stall_signal == 2'd2) ? 2'd2 : is_mispredict ? 2'd2 : is_load_use ? 2'd3 : 0;
+   Nbit_reg #(2, 16'd2) d_stall_reg(.in(d_stall_signal), .out(x_stall_signal), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [1:0] x_stall signal;
+   Nbit_reg #(2, 16'd2) x_stall_reg(.in(x_stall_signal), .out(m_stall_signal), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
+   wire [1:0] m_stall signal;
+   Nbit_reg #(2, 16'd2) x_stall_reg(.in(m_stall_signal), .out(test_stall), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
 
-   assign test_stall = is_mispredict ? 2'd2 : is_load_use ? 2'd3 : 0;
    assign test_cur_pc = w_pc;
    assign test_cur_insn = w_ir;
    assign test_regfile_we = w_regfile_we;
