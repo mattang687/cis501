@@ -215,10 +215,12 @@ module lc4_processor
    Nbit_reg #(1, 1'd0) m_is_control_reg(.in(x_is_control), .out(m_is_control), .clk(clk), .we(1), .gwe(gwe), .rst(rst));
 
    assign o_dmem_we = m_is_store;
-
    assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
-
    assign o_dmem_towrite = m_is_store ? m_r2data : 16'd0;
+
+   assign test_dmem_we = o_dmem_we;
+   assign test_dmem_addr = o_dmem_addr;
+   assign test_dmem_data = o_dmem_towrite;
 
    // W stage
 
