@@ -326,6 +326,7 @@ module lc4_processor
     * just restart the simulation.
     */
 `ifndef NDEBUG
+   always @(posedge gwe) begin
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
