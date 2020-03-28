@@ -80,7 +80,7 @@ module lc4_processor
    wire d_is_branch;
    wire d_is_control;
 
-   lc4_decoder decoder(.insn(i_cur_insn), .r1sel(d_r1sel), .r1re(d_r1re), .r2sel(d_r2sel), .r2re(d_r2re), .wsel(d_rdsel), .regfile_we(d_regfile_we), .nzp_we(d_nzp_we), .select_pc_plus_one(d_select_pc_plus_one), .is_load(d_is_load), .is_store(d_is_store), .is_branch(d_is_branch), .is_control_insn(d_is_control));
+   lc4_decoder decoder(.insn(d_ir), .r1sel(d_r1sel), .r1re(d_r1re), .r2sel(d_r2sel), .r2re(d_r2re), .wsel(d_rdsel), .regfile_we(d_regfile_we), .nzp_we(d_nzp_we), .select_pc_plus_one(d_select_pc_plus_one), .is_load(d_is_load), .is_store(d_is_store), .is_branch(d_is_branch), .is_control_insn(d_is_control));
 
    wire [15:0] d_r1data;
    wire [15:0] d_r2data;
@@ -94,8 +94,8 @@ module lc4_processor
    wire [2:0] w_rdsel;
    wire [15:0] w_rddata;
 
-   assign d_r1data = (w_rdsel == d_r1sel) ? w_rddata : d_r1data_tmp;
-   assign d_r2data = (w_rdsel == d_r2sel) ? w_rddata : d_r2data_tmp;
+   assign d_r1data = ((w_rdsel == d_r1sel) && d_r1re && w_regfile_we) ? w_rddata : d_r1data_tmp;
+   assign d_r2data = ((w_rdsel == d_r2sel) && d_r1re && w_regfile_we) ? w_rddata : d_r2data_tmp;
 
    
 
@@ -277,6 +277,21 @@ module lc4_processor
    assign w_rddata = w_is_load ? w_dmem_data : w_alu_out;
 
    // Test signals
+   
+   /*
+   wire [15:0] test_r1sel;
+   wire [15:0] test_r1re;
+   wire [15:0] test_r2sel;
+   wire [15:0] test_r2re;
+   wire [15:0] test_select_pc_plus_one;
+   wire [15:0] test_is_load;
+   wire [15:0] test_is_store;
+   wire [15:0] test_is_branch;
+   wire [15:0] test_is_control;
+   
+   lc4_decoder test_decoder(.insn(w_ir), .r1sel(test_r1sel), .r1re(test_r1re), .r2sel(test_r2sel), .r2re(test_r2re), .wsel(test_regfile_wsel), .regfile_we(test_regfile_we), .nzp_we(test_nzp_we), .select_pc_plus_one(test_select_pc_plus_one), .is_load(test_is_load), .is_store(test_is_store), .is_branch(test_is_branch), .is_control_insn(test_is_control));
+   */
+
    // stall stuff
    wire [1:0] f_stall_signal = is_mispredict ? 2'd2 : 0;
    wire [1:0] d_stall_signal_in;
@@ -311,7 +326,6 @@ module lc4_processor
     * just restart the simulation.
     */
 `ifndef NDEBUG
-   always @(posedge gwe) begin
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
       // if (o_dmem_we)
       //   $display("%d STORE %h <= %h", $time, o_dmem_addr, o_dmem_towrite);
