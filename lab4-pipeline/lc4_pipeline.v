@@ -63,6 +63,9 @@ module lc4_processor
    wire d_ir_rst = is_mispredict || rst;
 
    Nbit_reg #(16, 16'h8200) d_pc_reg(.in(f_pc), .out(d_pc), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(rst));
+   
+   wire[15:0] d_pc_plus_one;
+   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg(.in(f_pc_plus_one), .out(d_pc_plus_one), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(rst));
 
    wire [15:0] d_ir;
    Nbit_reg #(16, 16'd0) d_ir_reg(.in(i_cur_insn), .out(d_ir), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(d_ir_rst));
@@ -104,6 +107,9 @@ module lc4_processor
    // PC register
    wire [15:0] x_pc;
    Nbit_reg #(16, 16'h8200) x_pc_reg(.in(d_pc), .out(x_pc), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   
+   wire[15:0] x_pc_plus_one;
+   Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg(.in(d_pc_plus_one), .out(x_pc_plus_one), .clk(clk), .we(d_reg_we), .gwe(gwe), .rst(rst));
 
    // Insn register
    wire x_ir_rst = is_load_use || is_mispredict || rst;
@@ -143,7 +149,8 @@ module lc4_processor
    wire x_is_control;
    Nbit_reg #(1, 1'd0) x_is_control_reg(.in(d_is_control), .out(x_is_control), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
-   assign is_load_use = x_is_load && !d_is_store && ((x_rdsel == d_r1sel) && d_r1re && x_regfile_we) && ((x_rdsel == d_r2sel) && d_r2re && x_regfile_we);
+   assign is_load_use = x_is_load && !d_is_store && 
+         ((((x_rdsel == d_r1sel) && d_r1re && x_regfile_we) && ((x_rdsel == d_r2sel) && d_r2re && x_regfile_we)) || d_is_branch);
 
    // MX bypass
    wire [2:0] m_rdsel;
@@ -162,10 +169,7 @@ module lc4_processor
    // TODO handle load
    wire [15:0] nzp_in;
 
-   wire [15:0] x_pc_plus_one;
-   cla16 x_pc_incr(.a(x_pc), .b(16'd0), .cin(1'd1), .sum(x_pc_plus_one));
-
-   assign nzp_in = x_select_pc_plus_one ? x_pc_plus_one : x_alu_out;
+   assign nzp_in = w_is_load && !m_nzp_we && !x_nzp_we ? w_alu_out : x_select_pc_plus_one ? x_pc_plus_one : x_alu_out;
 
    wire [2:0] nzp_new = nzp_in == 0 ? 3'b010 : nzp_in[15] == 1'b1 ? 3'b100 : 3'b001;
 
@@ -224,11 +228,17 @@ module lc4_processor
    assign o_dmem_addr = (m_is_load || m_is_store) ? m_alu_out : 16'd0;
    assign o_dmem_towrite = m_is_store ? m_r2data : 16'd0;
 
-   assign test_dmem_we = o_dmem_we;
-   assign test_dmem_addr = o_dmem_addr;
-   assign test_dmem_data = o_dmem_towrite;
-
    // W stage
+
+   // dmem
+   wire [15:0] w_dmem_we;
+   Nbit_reg #(16, 16'd0) w_dmem_we_reg(.in(m_is_store), .out(w_dmem_we), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+
+   wire [15:0] w_dmem_addr;
+   Nbit_reg #(16, 16'd0) w_dmem_addr_reg(.in(o_dmem_addr), .out(w_dmem_addr), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+
+   wire [15:0] w_dmem_towrite;
+   Nbit_reg #(16, 16'd0) w_dmem_towrite_reg(.in(o_dmem_towrite), .out(w_dmem_towrite), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
    // pc
    wire [15:0] w_pc;
@@ -311,6 +321,10 @@ module lc4_processor
    assign test_regfile_data = w_rddata;
    assign test_nzp_we = w_nzp_we;
    assign test_nzp_new_bits = w_nzp;
+
+   assign test_dmem_we = w_dmem_we;
+   assign test_dmem_addr = w_dmem_addr;
+   assign test_dmem_data = w_is_store ? w_dmem_towrite : w_dmem_data;
 
    assign led_data = switch_data;
 
