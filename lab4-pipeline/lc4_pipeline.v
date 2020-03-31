@@ -149,7 +149,7 @@ module lc4_processor
    wire x_is_control;
    Nbit_reg #(1, 1'd0) x_is_control_reg(.in(d_is_control), .out(x_is_control), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
-   assign is_load_use = x_is_load && 
+   assign is_load_use = x_is_load && x_stall_signal != 3'd3 &&
          ((((x_rdsel == d_r1sel) && d_r1re && x_regfile_we) || ((x_rdsel == d_r2sel) && d_r2re && x_regfile_we && !d_is_store)) || d_is_branch);
 
    // MX bypass
@@ -157,9 +157,9 @@ module lc4_processor
    wire m_regfile_we;
    wire [15:0] m_alu_out;
    wire w_regfile_we;
-   wire [15:0] x_alu_r1data = ((m_rdsel == x_r1sel) && m_regfile_we && x_r1re) ? m_alu_out : ((w_rdsel == x_r1sel) && w_regfile_we && x_r1re) ? w_rddata : x_r1data;
+   wire [15:0] x_alu_r1data = ((m_rdsel == x_r1sel) && m_regfile_we && x_r1re && m_stall_signal != 2'd3) ? m_alu_out : ((w_rdsel == x_r1sel) && w_regfile_we && x_r1re) ? w_rddata : x_r1data;
 
-   wire [15:0] x_alu_r2data = ((m_rdsel == x_r2sel) && m_regfile_we && x_r2re) ? m_alu_out : ((w_rdsel == x_r2sel) && w_regfile_we && x_r2re) ? w_rddata : x_r2data;
+   wire [15:0] x_alu_r2data = ((m_rdsel == x_r2sel) && m_regfile_we && x_r2re && m_stall_signal != 2'd3) ? m_alu_out : ((w_rdsel == x_r2sel) && w_regfile_we && x_r2re) ? w_rddata : x_r2data;
 
    // ALU
 
@@ -287,7 +287,7 @@ module lc4_processor
    assign w_rddata = w_is_load ? w_dmem_data : w_alu_out;
 
    // WM bypass
-   assign o_dmem_towrite = (w_is_load && m_is_store && w_rdsel == m_r2sel && w_regfile_we && m_r2re) ? w_rddata : m_is_store ? m_r2data : 16'd0;
+   assign o_dmem_towrite = (w_is_load && m_is_store && w_rdsel == m_r2sel && w_regfile_we && m_r2re && test_stall != 3'd3) ? w_rddata : m_is_store ? m_r2data : 16'd0;
 
 
    // Test signals
