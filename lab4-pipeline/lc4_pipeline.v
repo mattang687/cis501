@@ -176,7 +176,7 @@ module lc4_processor
    wire [2:0] nzp_out;
    Nbit_reg #(3, 3'd0) nzp(.in(nzp_new), .out(nzp_out), .clk(clk), .we(x_nzp_we), .gwe(gwe), .rst(rst));
 
-   wire take_branch = | (i_cur_insn[11:9] & nzp_out);
+   wire take_branch = | (x_ir[11:9] & nzp_out);
    assign is_mispredict = (take_branch && x_is_branch) || x_is_control;
 
    // M stage
