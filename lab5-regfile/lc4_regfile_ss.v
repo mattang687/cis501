@@ -41,4 +41,26 @@ module lc4_regfile_ss #(parameter n = 16)
 
    /*** TODO: Your Code Here ***/
 
+   wire [15:0] r_out [7:0];
+   wire [15:0] r_out_bypass [7:0];
+   wire [15:0] ab_dat [7:0];
+   wire we [7:0];
+   
+   genvar i;
+   for (i = 0; i < 8; i = i + 1) begin
+        assign ab_dat[i] = i_rd_B == i && i_rd_we_B ? i_wdata_B : i_wdata_A;
+        assign we[i] = (i_rd_B == i && i_rd_we_B) || (i_rd_A == i && i_rd_we_A);
+        Nbit_reg #(16, 16'd0) reg0 (.in(ab_dat[i]), .out(r_out[i]), .clk(clk), .we(we[i]), .gwe(gwe), .rst(rst));
+        assign r_out_bypass[i] = we[i] ? ab_dat[i] : r_out[i];
+   end
+   
+   assign o_rs_data_A = i_rs_A == 3'd0 ? r_out_bypass[0] : i_rs_A == 3'd1 ? r_out_bypass[1] : i_rs_A == 3'd2 ? r_out_bypass[2] : i_rs_A == 3'd3 ? r_out_bypass[3] : i_rs_A == 3'd4 ? r_out_bypass[4] : i_rs_A == 3'd5 ? r_out_bypass[5] : i_rs_A == 3'd6 ? r_out_bypass[6] : r_out_bypass[7];
+
+   assign o_rt_data_A = i_rt_A == 3'd0 ? r_out_bypass[0] : i_rt_A == 3'd1 ? r_out_bypass[1] : i_rt_A == 3'd2 ? r_out_bypass[2] : i_rt_A == 3'd3 ? r_out_bypass[3] : i_rt_A == 3'd4 ? r_out_bypass[4] : i_rt_A == 3'd5 ? r_out_bypass[5] : i_rt_A == 3'd6 ? r_out_bypass[6] : r_out_bypass[7];
+
+   assign o_rs_data_B = i_rs_B == 3'd0 ? r_out_bypass[0] : i_rs_B == 3'd1 ? r_out_bypass[1] : i_rs_B == 3'd2 ? r_out_bypass[2] : i_rs_B == 3'd3 ? r_out_bypass[3] : i_rs_B == 3'd4 ? r_out_bypass[4] : i_rs_B == 3'd5 ? r_out_bypass[5] : i_rs_B == 3'd6 ? r_out_bypass[6] : r_out_bypass[7];
+
+   assign o_rt_data_B = i_rt_B == 3'd0 ? r_out_bypass[0] : i_rt_B == 3'd1 ? r_out_bypass[1] : i_rt_B == 3'd2 ? r_out_bypass[2] : i_rt_B == 3'd3 ? r_out_bypass[3] : i_rt_B == 3'd4 ? r_out_bypass[4] : i_rt_B == 3'd5 ? r_out_bypass[5] : i_rt_B == 3'd6 ? r_out_bypass[6] : r_out_bypass[7];
+
+
 endmodule
