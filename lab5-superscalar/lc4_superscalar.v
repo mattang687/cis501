@@ -89,14 +89,14 @@ module lc4_processor(input wire         clk,             // main clock
    wire d_reg_we_a = !stall_a;
    wire d_ir_rst_a = is_mispredict || rst;
 
-   Nbit_reg #(16, 16'h8200) d_pc_reg_a(.in(f_pc), .out(d_pc_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_reg_a(.in(switch_pipes ? d_pc_b : f_pc), .out(d_pc_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(rst));
    
    wire[15:0] d_pc_plus_one_a;
-   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_a(.in(f_pc_plus_one), .out(d_pc_plus_one_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_a(.in(switch_pipes ? d_pc_plus_one_b : f_pc_plus_one), .out(d_pc_plus_one_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(rst));
 
    wire [15:0] d_ir_a;
    
-   Nbit_reg #(16, 16'd0) d_ir_reg_a(.in(i_cur_insn_A), .out(d_ir_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(d_ir_rst_a));
+   Nbit_reg #(16, 16'd0) d_ir_reg_a(.in(switch_pipes ? d_ir_b : i_cur_insn_A), .out(d_ir_a), .clk(clk), .we(d_reg_we_a), .gwe(gwe), .rst(d_ir_rst_a));
 
    wire [2:0] d_r1sel_a;
    wire d_r1re_a;
@@ -118,17 +118,17 @@ module lc4_processor(input wire         clk,             // main clock
 
    // pipe b
    wire [15:0] d_pc_b;
-   wire d_reg_we_b = !stall_b;
+   wire d_reg_we_b = !stall_a;
    wire d_ir_rst_b = is_mispredict || rst;
 
-   Nbit_reg #(16, 16'h8200) d_pc_reg_b(.in(f_pc_plus_two), .out(d_pc_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_reg_b(.in(switch_pipes ? f_pc : f_pc_plus_two), .out(d_pc_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
    
    wire[15:0] d_pc_plus_one_b;
-   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_b(.in(f_pc_plus_three), .out(d_pc_plus_one_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_b(.in(switch_pipes ? f_pc_plus_one : f_pc_plus_three), .out(d_pc_plus_one_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
 
    wire [15:0] d_ir_b;
    
-   Nbit_reg #(16, 16'd0) d_ir_reg_b(.in(i_cur_insn_B), .out(d_ir_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(d_ir_rst_b));
+   Nbit_reg #(16, 16'd0) d_ir_reg_b(.in(switch_pipes ? i_cur_insn_A : i_cur_insn_B), .out(d_ir_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(d_ir_rst_b));
 
    wire [2:0] d_r1sel_b;
    wire d_r1re_b;
@@ -184,48 +184,48 @@ module lc4_processor(input wire         clk,             // main clock
    // pipe a registers
    // PC reg
    wire [15:0] x_pc_a;
-   Nbit_reg #(16, 16'h8200) x_pc_reg_a(.in(switch_pipes ? d_pc_b : d_pc_a), .out(x_pc_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) x_pc_reg_a(.in(d_pc_a), .out(x_pc_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
    
    wire[15:0] x_pc_plus_one_a;
-   Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg_a(.in(switch_pipes ? d_pc_plus_one_b : d_pc_plus_one_a), .out(x_pc_plus_one_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) x_pc_plus_one_reg_a(.in(d_pc_plus_one_a), .out(x_pc_plus_one_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
    // Insn register
    wire x_ir_rst_a = stall_a || is_mispredict || rst;
    wire [15:0] x_ir_a;
-   Nbit_reg #(16, 16'd0) x_ir_reg_a(.in(switch_pipes ? d_ir_b : d_ir_a), .out(x_ir_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(16, 16'd0) x_ir_reg_a(.in(d_ir_a), .out(x_ir_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
 
    // Data registers
    wire [15:0] x_r1data_a;
-   Nbit_reg #(16, 16'd0) x_rs_data_a(.in(switch_pipes ? d_r1data_b : d_r1data_a), .out(x_r1data_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'd0) x_rs_data_a(.in(d_r1data_a), .out(x_r1data_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
    wire [15:0] x_r2data_a;
-   Nbit_reg #(16, 16'd0) x_rt_data_a(.in(switch_pipes ? d_r2data_b : d_r2data_a), .out(x_r2data_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'd0) x_rt_data_a(.in(d_r2data_a), .out(x_r2data_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
    // Control signal registers
    wire [2:0] x_r1sel_a;
-   Nbit_reg #(3, 3'd0) x_r1sel_reg_a(.in(switch_pipes ? d_r1sel_b : d_r1sel_a), .out(x_r1sel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(3, 3'd0) x_r1sel_reg_a(.in(d_r1sel_a), .out(x_r1sel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_r1re_a;
-   Nbit_reg #(1, 1'd0) x_r1re_reg_a(.in(switch_pipes ? d_r1re_b : d_r1re_a), .out(x_r1re_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_r1re_reg_a(.in(d_r1re_a), .out(x_r1re_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire [2:0] x_r2sel_a;
-   Nbit_reg #(3, 3'd0) x_r2sel_reg_a(.in(switch_pipes ? d_r2sel_b : d_r2sel_a), .out(x_r2sel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(3, 3'd0) x_r2sel_reg_a(.in(d_r2sel_a), .out(x_r2sel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_r2re_a;
-   Nbit_reg #(1, 1'd0) x_r2re_reg_a(.in(switch_pipes ? d_r2re_b : d_r2re_a), .out(x_r2re_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_r2re_reg_a(.in(d_r2re_a), .out(x_r2re_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire [2:0] x_rdsel_a;
-   Nbit_reg #(3, 3'd0) x_rdsel_reg_a(.in(switch_pipes ? d_rdsel_b : d_rdsel_a), .out(x_rdsel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(3, 3'd0) x_rdsel_reg_a(.in(d_rdsel_a), .out(x_rdsel_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_regfile_we_a;
-   Nbit_reg #(1, 1'd0) x_regfile_we_reg_a(.in(switch_pipes ? d_regfile_we_b : d_regfile_we_a), .out(x_regfile_we_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_regfile_we_reg_a(.in(d_regfile_we_a), .out(x_regfile_we_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_nzp_we_a;
-   Nbit_reg #(1, 1'd0) x_nzp_we_reg_a(.in(switch_pipes ? d_nzp_we_b : d_nzp_we_a), .out(x_nzp_we_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_nzp_we_reg_a(.in(d_nzp_we_a), .out(x_nzp_we_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_select_pc_plus_one_a;
-   Nbit_reg #(1, 1'd0) x_select_pc_reg_a(.in(switch_pipes ? d_select_pc_plus_one_b : d_select_pc_plus_one_a), .out(x_select_pc_plus_one_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_select_pc_reg_a(.in(d_select_pc_plus_one_a), .out(x_select_pc_plus_one_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_is_load_a;
-   Nbit_reg #(1, 1'd0) x_is_load_reg_a(.in(switch_pipes ? d_is_load_b : d_is_load_a), .out(x_is_load_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_is_load_reg_a(.in(d_is_load_a), .out(x_is_load_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_is_store_a;
-   Nbit_reg #(1, 1'd0) x_is_store_reg_a(.in(switch_pipes ? d_is_store_b : d_is_store_a), .out(x_is_store_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_is_store_reg_a(.in(d_is_store_a), .out(x_is_store_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_is_branch_a;
-   Nbit_reg #(1, 1'd0) x_is_branch_reg_a(.in(switch_pipes ? d_is_branch_b : d_is_branch_a), .out(x_is_branch_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_is_branch_reg_a(.in(d_is_branch_a), .out(x_is_branch_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
    wire x_is_control_a;
-   Nbit_reg #(1, 1'd0) x_is_control_reg_a(.in(switch_pipes ? d_is_control_b : d_is_control_a), .out(x_is_control_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
+   Nbit_reg #(1, 1'd0) x_is_control_reg_a(.in(d_is_control_a), .out(x_is_control_a), .clk(clk), .we(1'd1), .gwe(gwe), .rst(x_ir_rst_a));
 
    // pipe b registers
    // PC reg
