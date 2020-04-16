@@ -65,13 +65,12 @@ module lc4_processor(input wire         clk,             // main clock
 
    assign f_pc_reg_we = !stall_a; // stall pc reg only if a stalls (causing both to stall)
 
-   assign f_next_pc = is_mispredict ? mispredict_pc_out : stall_b && !stall_a ?  f_pc_plus_one : f_pc_plus_two;
+   assign f_next_pc = is_mispredict ? mispredict_pc_out : stall_a ? f_pc : stall_b ?  f_pc_plus_one : f_pc_plus_two;
 
    Nbit_reg #(16, 16'h8200) f_pc_reg(.in(f_next_pc), .out(f_pc), .clk(clk), .we(f_pc_reg_we), .gwe(gwe), .rst(rst));
 
    cla16 f_pc_incr_1(.a(f_pc), .b(16'd1), .cin(1'd0), .sum(f_pc_plus_one));
    cla16 f_pc_incr_2(.a(f_pc), .b(16'd2), .cin(1'd0), .sum(f_pc_plus_two));
-   cla16 f_pc_incr_3(.a(f_pc), .b(16'd3), .cin(1'd0), .sum(f_pc_plus_three));
 
    assign o_cur_pc = f_pc;
    
@@ -121,10 +120,10 @@ module lc4_processor(input wire         clk,             // main clock
    wire d_reg_we_b = !stall_a;
    wire d_ir_rst_b = is_mispredict || rst;
 
-   Nbit_reg #(16, 16'h8200) d_pc_reg_b(.in(switch_pipes ? f_pc : f_pc_plus_two), .out(d_pc_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_reg_b(.in(switch_pipes ? f_pc : f_pc_plus_one), .out(d_pc_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
    
    wire[15:0] d_pc_plus_one_b;
-   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_b(.in(switch_pipes ? f_pc_plus_one : f_pc_plus_three), .out(d_pc_plus_one_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
+   Nbit_reg #(16, 16'h8200) d_pc_plus_one_reg_b(.in(switch_pipes ? f_pc_plus_one : f_pc_plus_two), .out(d_pc_plus_one_b), .clk(clk), .we(d_reg_we_b), .gwe(gwe), .rst(rst));
 
    wire [15:0] d_ir_b;
    
@@ -278,18 +277,18 @@ module lc4_processor(input wire         clk,             // main clock
    wire m_regfile_we_a;
    wire [15:0] m_alu_out_a;
    wire w_regfile_we_a;
-   wire [15:0] x_alu_r1data_a = ((m_rdsel_b == x_r1sel_a) && m_regfile_we_b && x_r1re_a && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r1sel_a) && m_regfile_we_a && x_r1re_a && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r1sel_a) && w_regfile_we_b && x_r1re_a && test_stall_B == 2'd0) ? w_rddata_a : ((w_rdsel_a == x_r1sel_a) && w_regfile_we_a && x_r1re_a && test_stall_A == 2'd0) ? w_rddata_a : x_r1data_a;
+   wire [15:0] x_alu_r1data_a = ((m_rdsel_b == x_r1sel_a) && m_regfile_we_b && x_r1re_a && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r1sel_a) && m_regfile_we_a && x_r1re_a && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r1sel_a) && w_regfile_we_b && x_r1re_a && test_stall_B == 2'd0) ? w_rddata_b : ((w_rdsel_a == x_r1sel_a) && w_regfile_we_a && x_r1re_a && test_stall_A == 2'd0) ? w_rddata_a : x_r1data_a;
 
-   wire [15:0] x_alu_r2data_a = ((m_rdsel_b == x_r2sel_a) && m_regfile_we_b && x_r2re_a && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r2sel_a) && m_regfile_we_a && x_r2re_a && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r2sel_a) && w_regfile_we_b && x_r2re_a && test_stall_B == 2'd0) ? w_rddata_a : ((w_rdsel_a == x_r2sel_a) && w_regfile_we_a && x_r2re_a && test_stall_A == 2'd0) ? w_rddata_a : x_r2data_a;
+   wire [15:0] x_alu_r2data_a = ((m_rdsel_b == x_r2sel_a) && m_regfile_we_b && x_r2re_a && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r2sel_a) && m_regfile_we_a && x_r2re_a && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r2sel_a) && w_regfile_we_b && x_r2re_a && test_stall_B == 2'd0) ? w_rddata_b : ((w_rdsel_a == x_r2sel_a) && w_regfile_we_a && x_r2re_a && test_stall_A == 2'd0) ? w_rddata_a : x_r2data_a;
 
    // MX/WX bypass b
    wire [2:0] m_rdsel_b;
    wire m_regfile_we_b;
    wire [15:0] m_alu_out_b;
    wire w_regfile_we_b;
-   wire [15:0] x_alu_r1data_b = ((m_rdsel_b == x_r1sel_b) && m_regfile_we_b && x_r1re_b && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r1sel_b) && m_regfile_we_a && x_r1re_b && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r1sel_b) && w_regfile_we_b && x_r1re_b && test_stall_B == 2'd0) ? w_rddata_a : ((w_rdsel_a == x_r1sel_b) && w_regfile_we_a && x_r1re_b && test_stall_A == 2'd0) ? w_rddata_a : x_r1data_b;
+   wire [15:0] x_alu_r1data_b = ((m_rdsel_b == x_r1sel_b) && m_regfile_we_b && x_r1re_b && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r1sel_b) && m_regfile_we_a && x_r1re_b && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r1sel_b) && w_regfile_we_b && x_r1re_b && test_stall_B == 2'd0) ? w_rddata_b : ((w_rdsel_a == x_r1sel_b) && w_regfile_we_a && x_r1re_b && test_stall_A == 2'd0) ? w_rddata_a : x_r1data_b;
 
-   wire [15:0] x_alu_r2data_b = ((m_rdsel_b == x_r2sel_b) && m_regfile_we_b && x_r2re_b && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r2sel_b) && m_regfile_we_a && x_r2re_b && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r2sel_b) && w_regfile_we_b && x_r2re_b && test_stall_B == 2'd0) ? w_rddata_a : ((w_rdsel_a == x_r2sel_b) && w_regfile_we_a && x_r2re_b && test_stall_A == 2'd0) ? w_rddata_a : x_r2data_b;
+   wire [15:0] x_alu_r2data_b = ((m_rdsel_b == x_r2sel_b) && m_regfile_we_b && x_r2re_b && m_stall_signal_b == 2'd0) ? m_alu_out_b : ((m_rdsel_a == x_r2sel_b) && m_regfile_we_a && x_r2re_b && m_stall_signal_a == 2'd0) ? m_alu_out_a : ((w_rdsel_b == x_r2sel_b) && w_regfile_we_b && x_r2re_b && test_stall_B == 2'd0) ? w_rddata_b : ((w_rdsel_a == x_r2sel_b) && w_regfile_we_a && x_r2re_b && test_stall_A == 2'd0) ? w_rddata_a : x_r2data_b;
 
    // ALU
    wire [15:0] x_alu_out_a;
@@ -387,7 +386,7 @@ module lc4_processor(input wire         clk,             // main clock
 
    // forward nzp bits
    wire [2:0] m_nzp_b;
-   Nbit_reg #(3, 3'd0) m_nzp_reg_b(.in(is_mispredict_a ? 16'd0 : nzp_new), .out(m_nzp_b), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
+   Nbit_reg #(3, 3'd0) m_nzp_reg_b(.in(is_mispredict_a ? 3'd0 : nzp_new), .out(m_nzp_b), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
 
    // forward alu output
    Nbit_reg #(16, 16'd0) m_alu_reg_b(.in(is_mispredict_a ? 16'd0 : x_alu_out_b), .out(m_alu_out_b), .clk(clk), .we(1'd1), .gwe(gwe), .rst(rst));
