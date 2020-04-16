@@ -161,8 +161,8 @@ module lc4_processor(input wire         clk,             // main clock
          (x_is_load_a && x_stall_signal_a == 2'd0 && (((x_rdsel_a == d_r1sel_a) && d_r1re_a && x_regfile_we_a && !(x_rdsel_b == d_r1sel_a && d_r1re_a && x_regfile_we_b)) || ((x_rdsel_a == d_r2sel_a) && d_r2re_a && x_regfile_we_a && !d_is_store_a && !(x_rdsel_b == d_r2sel_a && d_r2re_a && x_regfile_we_b)) || (d_is_branch_a && !x_regfile_we_b))) ||
          (x_is_load_b && x_stall_signal_b == 2'd0 && (((x_rdsel_b == d_r1sel_a) && d_r1re_a && x_regfile_we_b) || ((x_rdsel_b == d_r2sel_a) && d_r2re_a && x_regfile_we_b && !d_is_store_a) || d_is_branch_a));
    wire is_load_use_b = 
-         (x_is_load_a && x_stall_signal_a == 2'd0 && (((x_rdsel_a == d_r1sel_b) && d_r1re_b && x_regfile_we_a && !(x_rdsel_b == d_r1sel_b && d_r1re_b && x_regfile_we_b) && !(d_rdsel_a == d_r1sel_b && d_r1re_b && d_reg_we_a)) || ((x_rdsel_a == d_r2sel_b) && d_r2re_b && x_regfile_we_a && !d_is_store_b && !(x_rdsel_b == d_r2sel_b && d_r1re_b && x_regfile_we_b) && !(d_rdsel_a == d_r2sel_b && d_r1re_b && d_reg_we_a)) || d_is_branch_b && !x_regfile_we_b && !d_regfile_we_a)) ||
-         (x_is_load_b && x_stall_signal_b == 2'd0 && (((x_rdsel_b == d_r1sel_b) && d_r1re_b && x_regfile_we_b && !(d_rdsel_a == d_r1sel_b && d_r1re_b && d_reg_we_a)) || ((x_rdsel_b == d_r2sel_b) && d_r2re_b && x_regfile_we_b && !d_is_store_b && !(d_rdsel_a == d_r2sel_b && d_r2re_b && d_reg_we_a)) || d_is_branch_b));
+         (x_is_load_a && x_stall_signal_a == 2'd0 && (((x_rdsel_a == d_r1sel_b) && d_r1re_b && x_regfile_we_a && !(x_rdsel_b == d_r1sel_b && d_r1re_b && x_regfile_we_b) && !(d_rdsel_a == d_r1sel_b && d_r1re_b && d_reg_we_a && !d_is_store_a)) || ((x_rdsel_a == d_r2sel_b) && d_r2re_b && x_regfile_we_a && !d_is_store_b && !(x_rdsel_b == d_r2sel_b && d_r1re_b && x_regfile_we_b) && !(d_rdsel_a == d_r2sel_b && d_r1re_b && d_reg_we_a)) || d_is_branch_b && !x_regfile_we_b && !d_regfile_we_a)) ||
+         (x_is_load_b && x_stall_signal_b == 2'd0 && (((x_rdsel_b == d_r1sel_b) && d_r1re_b && x_regfile_we_b && !(d_rdsel_a == d_r1sel_b && d_r1re_b && d_reg_we_a && !d_is_store_a)) || ((x_rdsel_b == d_r2sel_b) && d_r2re_b && x_regfile_we_b && !d_is_store_b && !(d_rdsel_a == d_r2sel_b && d_r2re_b && d_reg_we_a)) || d_is_branch_b));
 
    // other dependences
    wire has_dependence = d_stall_signal_a == 2'd0 && 
@@ -548,8 +548,10 @@ module lc4_processor(input wire         clk,             // main clock
 
    // WM/MM bypass
    assign o_dmem_towrite = ((m_rdsel_a == m_r2sel_b) && m_regfile_we_a && m_is_store_b) ? m_alu_out_a : 
-      (w_is_load_b && m_is_store_b && w_rdsel_b == m_r2sel_b && w_regfile_we_b && m_r2re_b && test_stall_B == 2'd0) ? w_rddata_b : 
-      (w_is_load_a && m_is_store_a && w_rdsel_a == m_r2sel_a && w_regfile_we_a && m_r2re_a && test_stall_A == 2'd0 && !(w_rdsel_b == m_r2sel_a && w_regfile_we_b && m_r2re_a && test_stall_B == 2'd0)) ? w_rddata_a : 
+      (w_is_load_b && m_is_store_b && w_rdsel_b == m_r2sel_b && w_regfile_we_b && m_r2re_b && test_stall_B == 2'd0 && !(m_rdsel_a == m_r2sel_b && m_regfile_we_a && m_r2re_b && m_stall_signal_a == 2'd0)) ||
+      (w_is_load_b && m_is_store_a && w_rdsel_b == m_r2sel_a && w_regfile_we_b && m_r2re_a && test_stall_B == 2'd0) ? w_rddata_b : 
+      (w_is_load_a && m_is_store_a && w_rdsel_a == m_r2sel_a && w_regfile_we_a && m_r2re_a && test_stall_A == 2'd0 && !(w_rdsel_b == m_r2sel_a && w_regfile_we_b && m_r2re_a && test_stall_B == 2'd0)) || 
+      (w_is_load_a && m_is_store_b && w_rdsel_a == m_r2sel_b && w_regfile_we_a && m_r2re_b && test_stall_A == 2'd0 && !(w_rdsel_b == m_r2sel_b && w_regfile_we_b && m_r2re_b && test_stall_B == 2'd0) && !(m_rdsel_a == m_r2sel_b && m_regfile_we_a && m_r2re_b && m_stall_signal_a == 2'd0)) ? w_rddata_a : 
       m_is_store_b ? m_r2data_b : 
       m_is_store_a ? m_r2data_a : 
       16'd0;
@@ -596,9 +598,9 @@ module lc4_processor(input wire         clk,             // main clock
     * to conditionally print out information.
     */
    always @(posedge gwe) begin
-      if (m_ir_a == 16'h7b40)
-         //$display("w_dmem_towrite_a=%h",o_dmem_towrite);
-      $display("o_dmem_towrite=%h, m_alu_out_a=%h,%d, w_rddata_=%h,%d, w_rddata_a=%h,%d, m_r2data_b=%h,%d, m_r2data_a=%h,%d", o_dmem_towrite, m_alu_out_a,((m_rdsel_a == m_r2sel_b) && m_regfile_we_a && m_is_store_b), w_rddata_b,(w_is_load_b && m_is_store_b && w_rdsel_b == m_r2sel_b && w_regfile_we_b && m_r2re_b && test_stall_B == 2'd0), w_rddata_a,(w_is_load_a && m_is_store_a && w_rdsel_a == m_r2sel_a && w_regfile_we_a && m_r2re_a && test_stall_A == 2'd0), m_r2data_b,m_is_store_b, m_r2data_a, m_is_store_a);
+      //if (m_ir_b == 16'h7880)
+         //$display("o_dmem_towrite=%h%d",o_dmem_towrite,m_is_store_b);
+      //$display("o_dmem_towrite=%h, m_alu_out_a=%h,%d, w_rddata_=%h,%d, w_rddata_a=%h,%d, m_r2data_b=%h,%d, m_r2data_a=%h,%d", o_dmem_towrite, m_alu_out_a,((m_rdsel_a == m_r2sel_b) && m_regfile_we_a && m_is_store_b), w_rddata_b,(w_is_load_b && m_is_store_b && w_rdsel_b == m_r2sel_b && w_regfile_we_b && m_r2re_b && test_stall_B == 2'd0), w_rddata_a,(w_is_load_a && m_is_store_a && w_rdsel_a == m_r2sel_a && w_regfile_we_a && m_r2re_a && test_stall_A == 2'd0 && !(w_rdsel_b == m_r2sel_a && w_regfile_we_b && m_r2re_a && test_stall_B == 2'd0)), m_r2data_b,m_is_store_b, m_r2data_a, m_is_store_a);
       //$display("is_structural=%d, has_dependence=%d", dab_structural, has_dependence);
       //$display("w_rdsel_a=%h", w_rdsel_a);
       // $display("%d %h %h %h %h %h", $time, f_pc, d_pc, e_pc, m_pc, test_cur_pc);
